@@ -1,13 +1,11 @@
 import express from 'express';
-import type { Request, Response } from 'express'
 const app = express();
-const PORT = process.env.PORT || 4000;
+const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
 
-app.get('/', (req: Request, res: Response) => {
-  res.send('Hello TypeScript with Express!');
-});
+import authRouter from "./routes/auth.route.js"
+app.use("/api/v1/auth", authRouter)
 
 app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);

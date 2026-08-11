@@ -1,8 +1,13 @@
 {
   "dependencies": {
+    "@types/bcrypt": "^6.0.0",
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/pg": "^8.21.0",
+    "bcrypt": "^6.0.0",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
+    "express-validator": "^7.3.2",
+    "jsonwebtoken": "^9.0.3",
     "pg": "^8.23.0",
     "socket.io": "^4.8.3"
   },
@@ -21,6 +26,7 @@
   "license": "ISC",
   "devDependencies": {
     "@types/express": "^5.0.6",
+    "@types/express-validator": "^2.20.33",
     "@types/node": "^26.2.0",
     "nodemon": "^3.1.14",
     "ts-node": "^10.9.2",
