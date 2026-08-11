@@ -23,9 +23,5 @@ export const registerValidator = [
   body("password")
     .notEmpty()
     .isLength({ min: 8 })
-    .withMessage("invalid password min length 8"),
-  body("role")
-    .default("user")
-    .isIn(['owner', 'member', 'viewer', 'user'])
-    .withMessage("The role must be either owner, member, or viewer, user")
+    .withMessage("invalid password min length 8")
 ]

@@ -46,3 +46,41 @@ export const createUser = async (req: Request<{}, ApiResponse, User>, res: Respo
         token
     })
 }
+
+export const login = async (req: Request<{}, ApiResponse, User>, res: Response<ApiResponse>) => {
+    const { email, password } = req.body
+
+    const existUser = await userModel.getUserByEmail(email)
+
+    if (!existUser) {
+        return res.status(400).json({
+            status: "fail",
+            message: "user already exist"
+        })
+    }
+
+    const comparePassword = await bcrypt.compare(password, existUser.password)
+
+    if(!comparePassword){
+        return res.status(400).json({
+            status: "fail",
+            message: "wrong email or password"
+        })
+    }
+    const token = generateToken({
+        id: existUser.id,
+        email: existUser.email
+    })
+    return res.status(200).json({
+        status: "success",
+        message: "login successfully",
+        data:{
+            user: {
+                id: existUser.id,
+                username: existUser.username,
+                email: existUser.email
+            }
+        },
+        token
+    })
+}
