@@ -1,0 +1,87 @@
+import type { Response } from 'express';
+import chatModel from '../models/chat.model.js';
+import userModel from '../models/auth.model.js';
+import type { ApiResponse } from '../interface/respons.interface.js';
+import type { member } from "../interface/chat.interface.js";
+import type { CustomRequest } from "../middlewares/auth.middleware.js";
+
+export const privetChat = async (req: CustomRequest, res: Response<ApiResponse>) => {
+    try {
+        const userId = req.user?.id as string;
+        const receiverId = req.body?.receiverId
+
+        if (!receiverId) {
+            return res.status(400).json({
+                status: "fail",
+                message: "receiverId is required"
+            });
+        }
+
+        if (userId === receiverId) {
+            return res.status(400).json({
+                status: "fail",
+                message: "You cannot create a private chat with yourself"
+            });
+        }
+
+        const exsitUser = await userModel.getUserById(receiverId)
+        if (!exsitUser) {
+            return res.status(404).json({
+                status: "fail",
+                message: "not found receiver by id"
+            })
+        }
+        const existingChat = await chatModel.checkPrivetChat({ userId, senderId: receiverId })
+
+        if (existingChat) {
+            const existingChatName = await chatModel.getUsername({ chatId: existingChat.id, userId })
+            return res.status(200).json({
+                status: "success",
+                message: "chat already existing",
+                data: {
+                    id: existingChat.id,
+                    name: existingChatName.username,
+                    created_at: existingChat.created_at,
+                    type: existingChat.type
+                }
+            })
+        }
+
+        const chat = await chatModel.createPrivetChat();
+
+        const senderMemberData: member = {
+            userId,
+            role: "member",
+            chatId: chat.id
+        };
+        const receiverMemberData: member = {
+            userId: receiverId,
+            role: "member",
+            chatId: chat.id
+        };
+
+        await Promise.all([
+            chatModel.addMemberToChat(senderMemberData),
+            chatModel.addMemberToChat(receiverMemberData)
+        ]);
+        const username = await chatModel.getUsername({ chatId: chat.id, userId })
+
+        return res.status(201).json({
+            status: "success",
+            message: "Private chat created successfully",
+            data: {
+                chat_id: chat.id,
+                name: username.username,
+                created_at: chat.created_at,
+                type: chat.type
+            }
+        });
+
+    } catch (err) {
+        console.log("Error: ", err);
+        return res.status(500).json({
+            status: "fail",
+            message: "cannot create chat, try again later"
+        });
+    }
+};

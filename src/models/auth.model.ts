@@ -16,6 +16,13 @@ const user = {
         const value = [email]
         const result = await pool.query(query, value)
         return result.rows[0]
+    },
+    getUserById: async (id: string) => {
+        const query = `SELECT * FROM users
+        WHERE id = $1`
+        const value = [id]
+        const result = await pool.query(query, value)
+        return result.rows[0]
     }
 }
 
