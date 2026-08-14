@@ -71,7 +71,6 @@ export const registerChatHandlers = (io: Server, socket: AuthenticatedSocket) =>
       const updatedMessages = await chatModel.markMessagesAsRead(chatId, userId);
 
       if (updatedMessages.length > 0) {
-        // 🟢 صح: الـ Object جوة أقواس الـ emit
         io.to(chatId).emit("messages_read_receipt", {
           chatId,
           readBy: userId,
