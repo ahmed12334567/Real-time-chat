@@ -60,4 +60,26 @@ export const registerChatHandlers = (io: Server, socket: AuthenticatedSocket) =>
     socket.leave(data.chatId);
     console.log(`User ${userId} left room: ${data.chatId}`);
   });
+
+
+  socket.on("mark_as_read", async (data: { chatId: string }) => {
+
+    try {
+      const { chatId } = data;
+      if (!chatId || !userId) return;
+
+      const updatedMessages = await chatModel.markMessagesAsRead(chatId, userId);
+
+      if (updatedMessages.length > 0) {
+        // 🟢 صح: الـ Object جوة أقواس الـ emit
+        io.to(chatId).emit("messages_read_receipt", {
+          chatId,
+          readBy: userId,
+          updatedMessageIds: updatedMessages.map((m) => m.id),
+        });
+      }
+    } catch (error) {
+      console.error('Error marking messages as read:', error);
+    }
+  })
 }

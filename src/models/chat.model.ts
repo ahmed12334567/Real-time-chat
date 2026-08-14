@@ -80,6 +80,17 @@ const chat = {
         const value = [chatId]
         const result = await pool.query(query, value)
         return result.rows
+    },
+    markMessagesAsRead: async (chatId: string, senderId: string) =>{
+        const query = `UPDATE messages 
+                        SET status = 'Read'
+                        WHERE chat_id = $1
+                        AND sender_id = $2
+                        AND status != 'Read'
+                        RETURNING id, chat_id, sender_id, status;`
+        const values = [chatId, senderId]
+        const result = await pool.query(query, values)
+        return result.rows
     }
 }
 
