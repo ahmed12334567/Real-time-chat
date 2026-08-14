@@ -85,3 +85,26 @@ export const privetChat = async (req: CustomRequest, res: Response<ApiResponse>)
         });
     }
 };
+
+export const getChatMessages = async (req: CustomRequest, res: Response<ApiResponse>) => {
+    const { chatId } = req.params;
+    const userId = req.user?.id;
+    if(typeof chatId !== 'string'){
+        return res.status(400).json({
+            status: "fail",
+            message: "invalid chat ID"
+        })
+    }
+    const isMember = await chatModel.isUserInChat({chatId, userId});
+
+    if(!isMember){
+        return res.status(403).json({ status: "fail", message: 'Unauthorized access to chat' });
+    }
+    const messages = await chatModel.getChatMessages(chatId);
+
+    return res.status(200).json({
+      status: 'success',
+      message: "messages returned successfully",
+      data: messages
+    });
+}

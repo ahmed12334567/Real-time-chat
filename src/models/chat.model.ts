@@ -65,6 +65,21 @@ const chat = {
         const values = [data.chatId, data.userId]
         const result = await pool.query(query, values)
         return result.rowCount ? result.rowCount > 0 : false
+    },
+    getChatMessages: async (chatId: string) =>{
+        const query = `SELECT 
+                        m.id,
+                        m.chat_id AS "chatId",
+                        m.sender_id AS "senderId",
+                        m.content,
+                        m.status,
+                        m.created_at AS "createdAt"
+                        FROM messages m
+                        WHERE m.chat_id = $1
+                        ORDER BY m.created_at ASC`
+        const value = [chatId]
+        const result = await pool.query(query, value)
+        return result.rows
     }
 }
 
