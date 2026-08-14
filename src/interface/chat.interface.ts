@@ -1,7 +1,7 @@
 export interface message {
     chatId: string;
     senderId: string;
-    status: ["Sent", "Delivered", "Read"];
+    status:string;
     content: string;
 }
 

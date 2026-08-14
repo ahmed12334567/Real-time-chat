@@ -1,0 +1,63 @@
+import { Server } from 'socket.io';
+import type { AuthenticatedSocket } from '../middlewares/socketAuth.middleware.js';
+import chatModel from '../models/chat.model.js';
+
+export const registerChatHandlers = (io: Server, socket: AuthenticatedSocket) => {
+  const userId = socket.user?.id
+
+  socket.on("join_chat", async (data: { chatId: string }) => {
+    try {
+      const { chatId } = data;
+
+      if (!chatId || !userId) {
+        return socket.emit('error', { message: 'Chat ID is required' });
+      }
+      const isMember = await chatModel.isUserInChat({ chatId, userId });
+      if (!isMember) {
+        return socket.emit('error', { message: 'You are not a member of this chat' });
+      }
+
+      socket.join(chatId)
+      console.log(`User ${userId} joined room: ${chatId}`);
+
+      socket.emit('joined_chat_success', { chatId, message: 'Joined successfully' });
+
+    } catch (err) {
+      console.log("Error: ", err);
+      socket.emit('error', { message: 'Failed to join chat' });
+    }
+  })
+
+  socket.on("send_message", async (data: { chatId: string; content: string }) => {
+    try {
+      const { chatId, content } = data;
+
+      if (!chatId || !content || !userId) {
+        return socket.emit('error', { message: 'Invalid message data' });
+      }
+
+      const rooms = Array.from(socket.rooms)
+      if (!rooms.includes(chatId)) {
+        return socket.emit('error', { message: 'You must join the chat first' });
+      }
+
+      const savedMessage = await chatModel.createMessage({
+        chatId,
+        senderId: userId,
+        content,
+        status: 'Sent'
+      })
+
+      io.to(chatId).emit("receive_message", savedMessage)
+
+    } catch (error) {
+      console.error('Error sending message:', error);
+      socket.emit('error', { message: 'Failed to send message' });
+    }
+  })
+
+  socket.on('leave_chat', (data: { chatId: string }) => {
+    socket.leave(data.chatId);
+    console.log(`User ${userId} left room: ${data.chatId}`);
+  });
+}

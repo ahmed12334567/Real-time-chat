@@ -53,9 +53,18 @@ const chat = {
                      AND cm2.user_id = $2
                     LIMIT 1;
     `;
-    const values = [data.userId, data.senderId]
-    const result = await pool.query(query, values)
-    return result.rows[0]
+        const values = [data.userId, data.senderId]
+        const result = await pool.query(query, values)
+        return result.rows[0]
+    },
+    isUserInChat: async (data: any) => {
+        const query = `SELECT 1 
+                        FROM chat_members 
+                        WHERE chat_id = $1 AND user_id = $2
+                        LIMIT 1;`
+        const values = [data.chatId, data.userId]
+        const result = await pool.query(query, values)
+        return result.rowCount ? result.rowCount > 0 : false
     }
 }
 
