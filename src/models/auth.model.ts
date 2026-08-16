@@ -18,7 +18,7 @@ const user = {
         return result.rows[0]
     },
     getUserById: async (id: string) => {
-        const query = `SELECT * FROM users
+        const query = `SELECT id, username FROM users
         WHERE id = $1`
         const value = [id]
         const result = await pool.query(query, value)

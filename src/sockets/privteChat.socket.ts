@@ -1,15 +1,17 @@
 import { Server } from 'socket.io';
 import type { AuthenticatedSocket } from '../middlewares/socketAuth.middleware.js';
 import chatModel from '../models/chat.model.js';
+import handleTypingEvent from '../utility/handlTyping.js';
 
 export const registerChatHandlers = (io: Server, socket: AuthenticatedSocket) => {
   const userId = socket.user?.id
+  const username = socket.user?.username
 
   socket.on("join_chat", async (data: { chatId: string }) => {
     try {
       const { chatId } = data;
 
-      if (!chatId || !userId) {
+      if (!chatId || !userId || !username) {
         return socket.emit('error', { message: 'Chat ID is required' });
       }
       const isMember = await chatModel.isUserInChat({ chatId, userId });
@@ -32,7 +34,7 @@ export const registerChatHandlers = (io: Server, socket: AuthenticatedSocket) =>
     try {
       const { chatId, content } = data;
 
-      if (!chatId || !content || !userId) {
+      if (!chatId || !content || !userId || !username) {
         return socket.emit('error', { message: 'Invalid message data' });
       }
 
@@ -66,7 +68,7 @@ export const registerChatHandlers = (io: Server, socket: AuthenticatedSocket) =>
 
     try {
       const { chatId } = data;
-      if (!chatId || !userId) return;
+      if (!chatId || !userId || !username) return;
 
       const updatedMessages = await chatModel.markMessagesAsRead(chatId, userId);
 
@@ -81,4 +83,7 @@ export const registerChatHandlers = (io: Server, socket: AuthenticatedSocket) =>
       console.error('Error marking messages as read:', error);
     }
   })
+socket.on("typing", handleTypingEvent("typing", socket));
+
+socket.on("stop_typing", handleTypingEvent("stop_typing", socket));
 }

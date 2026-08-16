@@ -30,7 +30,8 @@ export const createUser = async (req: Request<{}, ApiResponse, User>, res: Respo
     }
     const token = generateToken({
         id: createUser.id,
-        email: email
+        email: email,
+        username: username!
     })
 
     return res.status(201).json({
@@ -69,7 +70,8 @@ export const login = async (req: Request<{}, ApiResponse, User>, res: Response<A
     }
     const token = generateToken({
         id: existUser.id,
-        email: existUser.email
+        email: existUser.email,
+        username: existUser.username
     })
     return res.status(200).json({
         status: "success",

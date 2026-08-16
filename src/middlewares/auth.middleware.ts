@@ -10,6 +10,7 @@ export interface CustomRequest extends Request {
   user?: {
     id: string;
     email: string;
+    username: string;
   };
 }
 
@@ -33,8 +34,8 @@ export const verify =
                     message: "Invalid token"
                 })
             }
-            const { id, email } = decoded as JwtPayload
-            req.user = { id, email };
+            const { id, email, username } = decoded as JwtPayload
+            req.user = { id, email, username };
             next();
         })
     }
