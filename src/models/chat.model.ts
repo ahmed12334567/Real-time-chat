@@ -34,6 +34,13 @@ const chat = {
         const result = await pool.query(query, values)
         return result.rows[0]
     },
+    getMessage: async (messageId: string, chatId: string) => {
+        const query = `SELECT * FROM messages 
+        WHERE id = $1 AND chat_id = $2 AND deleted_at IS NULL`
+        const values = [messageId, chatId]
+        const result = await pool.query(query, values)
+        return result.rows[0]
+    },
     getUsername: async (data: any) => {
         const query = `SELECT username FROM users
         JOIN chat_members ON users.id = chat_members.user_id
@@ -66,7 +73,7 @@ const chat = {
         const result = await pool.query(query, values)
         return result.rowCount ? result.rowCount > 0 : false
     },
-    getChatMessages: async (chatId: string) =>{
+    getChatMessages: async (chatId: string) => {
         const query = `SELECT 
                         m.id,
                         m.chat_id AS "chatId",
@@ -75,22 +82,43 @@ const chat = {
                         m.status,
                         m.created_at AS "createdAt"
                         FROM messages m
-                        WHERE m.chat_id = $1
+                        WHERE m.chat_id = $1 AND deleted_at IS NULL
                         ORDER BY m.created_at ASC`
         const value = [chatId]
         const result = await pool.query(query, value)
         return result.rows
     },
-    markMessagesAsRead: async (chatId: string, senderId: string) =>{
+    markMessagesAsRead: async (chatId: string, senderId: string) => {
         const query = `UPDATE messages 
                         SET status = 'Read'
                         WHERE chat_id = $1
                         AND sender_id = $2
                         AND status != 'Read'
+                        AND deleted_at IS NULL
                         RETURNING id, chat_id, sender_id, status;`
         const values = [chatId, senderId]
         const result = await pool.query(query, values)
         return result.rows
+    },
+    updateMessage: async (content: string, messageId: string, chatId: string) => {
+        const query = `UPDATE messages
+        SET content = $1
+        WHERE id = $2 AND chat_id = $3 AND deleted_at IS NULL
+        RETURNING *;`
+        const values = [content, messageId, chatId]
+        const result = await pool.query(query, values)
+        return result.rows[0] || null
+    },
+    deleteMessage: async (messageId: string, chatId: string) => {
+        const query = `UPDATE messages
+                        SET deleted_at = CURRENT_TIMESTAMP
+                        WHERE id = $1 AND chat_id = $2
+                        RETURNING id, deleted_at;
+    `
+        const values = [messageId, chatId]
+        const result = await pool.query(query, values)
+
+        return result.rows[0] || null
     }
 }
 
