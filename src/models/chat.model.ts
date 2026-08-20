@@ -119,6 +119,21 @@ const chat = {
         const result = await pool.query(query, values)
 
         return result.rows[0] || null
+    },
+    getUserChatIds: async (userId: string) => {
+        const query = `SELECT chat_id FROM chat_members 
+        WHERE user_id = $1`
+        const value = [userId]
+        const result = await pool.query(query, value)
+        return result.rows.map((row) => row.chat_id)
+    },
+    updateLastSeen: async (userId: string, lastSeen: Date) => {
+        const query = `UPDATE users 
+        SET last_seen = $2 
+        WHERE id = $1`
+        const values = [userId, lastSeen]
+        const result = await pool.query(query, values)
+        return result.rowCount ? result.rowCount > 0 : false
     }
 }
 

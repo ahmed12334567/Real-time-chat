@@ -3,10 +3,53 @@ import type { AuthenticatedSocket } from '../middlewares/socketAuth.middleware.j
 import chatModel from '../models/chat.model.js';
 import handleTypingEvent from '../utility/handlTyping.js';
 import verifyMessageOwnership from "../utility/verifyMessageOwnership.js"
+import { addUserSocket, removeUserSocket } from '../utility/onlineUsers.js';
 
-export const registerChatHandlers = (io: Server, socket: AuthenticatedSocket) => {
+export const registerChatHandlers = async (io: Server, socket: AuthenticatedSocket) => {
   const userId = socket.user?.id
   const username = socket.user?.username
+
+  if (userId) {
+    const justCameOnline = addUserSocket(userId, socket.id)
+
+    if (justCameOnline) {
+      try {
+        const chatIds = await chatModel.getUserChatIds(userId);
+
+        chatIds.forEach((chatId) => {
+          io.to(chatId).emit("user_online", { userId, username })
+        })
+
+      } catch (err) {
+        console.log("Error broadcasting online status: ", err);
+        socket.emit("error", { message: "Failed to get chat IDs" })
+      }
+    }
+  }
+
+  socket.on("disconnect", async () => {
+
+    if (!userId) return;
+
+    const wentOffline = removeUserSocket(userId, socket.id);
+
+    if (wentOffline) {
+      try {
+        const lastSeen = new Date();
+        await chatModel.updateLastSeen(userId, lastSeen);
+
+        const chatIds = await chatModel.getUserChatIds(userId);
+
+        chatIds.forEach((chatId) => {
+          io.to(chatId).emit("user_offline", {userId, username, lastSeen})
+        })
+
+      } catch (err) {
+        console.log('Error broadcasting offline status:', err);
+        socket.emit("error", { message: "Failed change status" })
+      }
+    }
+  })
 
   socket.on("join_chat", async (data: { chatId: string }) => {
     try {
@@ -144,7 +187,7 @@ export const registerChatHandlers = (io: Server, socket: AuthenticatedSocket) =>
       }
 
       const ownership = await verifyMessageOwnership(messageId, chatId, userId!);
-      
+
       if (!ownership.success) {
         return socket.emit('error', { message: ownership.error });
       }
@@ -168,4 +211,5 @@ export const registerChatHandlers = (io: Server, socket: AuthenticatedSocket) =>
 
 
   })
+
 }
