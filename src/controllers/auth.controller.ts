@@ -4,9 +4,11 @@ import bcrypt from "bcrypt"
 import { generateToken } from '../utility/jwt.js'
 import type { ApiResponse } from '../interface/respons.interface.js'
 import type { User } from '../interface/user.interface.js'
+import { asyncHandler } from "../middlewares/error.middleware.js"
 
 
-export const createUser = async (req: Request<{}, ApiResponse, User>, res: Response<ApiResponse>) => {
+export const createUser = asyncHandler (async (req: Request<{},
+    ApiResponse, User>, res: Response<ApiResponse>) => {
     const { username, email, password } = req.body
     const existUser = await userModel.getUserByEmail(email)
     if (existUser) {
@@ -46,9 +48,9 @@ export const createUser = async (req: Request<{}, ApiResponse, User>, res: Respo
         },
         token
     })
-}
+})
 
-export const login = async (req: Request<{}, ApiResponse, User>, res: Response<ApiResponse>) => {
+export const login = asyncHandler (async (req: Request<{}, ApiResponse, User>, res: Response<ApiResponse>) => {
     const { email, password } = req.body
 
     const existUser = await userModel.getUserByEmail(email)
@@ -62,7 +64,7 @@ export const login = async (req: Request<{}, ApiResponse, User>, res: Response<A
 
     const comparePassword = await bcrypt.compare(password, existUser.password)
 
-    if(!comparePassword){
+    if (!comparePassword) {
         return res.status(400).json({
             status: "fail",
             message: "wrong email or password"
@@ -76,7 +78,7 @@ export const login = async (req: Request<{}, ApiResponse, User>, res: Response<A
     return res.status(200).json({
         status: "success",
         message: "login successfully",
-        data:{
+        data: {
             user: {
                 id: existUser.id,
                 username: existUser.username,
@@ -85,4 +87,4 @@ export const login = async (req: Request<{}, ApiResponse, User>, res: Response<A
         },
         token
     })
-}
+})
