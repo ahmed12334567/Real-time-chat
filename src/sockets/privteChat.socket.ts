@@ -23,6 +23,15 @@ export const registerChatHandlers = socketAsyncHandler(async (io: Server, socket
     }
   }
 
+  socket.on("disconnecting", socketAsyncHandler(async () => {
+    if (!userId || !username) return;
+
+    const rooms = Array.from(socket.rooms).filter((room) => room !== socket.id);
+    rooms.forEach((chatId) => {
+      socket.to(chatId).emit("user_stop_typing", { username, chatId });
+    })
+  }))
+
   socket.on("disconnect", socketAsyncHandler(async () => {
 
     if (!userId) return;

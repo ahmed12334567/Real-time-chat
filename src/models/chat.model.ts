@@ -1,4 +1,5 @@
 import { pool } from "../config/db.js";
+import { getChatsUser } from "../controllers/chat.controller.js";
 import type { member, message } from "../interface/chat.interface.js"
 
 const chat = {
@@ -134,6 +135,24 @@ const chat = {
         const values = [userId, lastSeen]
         const result = await pool.query(query, values)
         return result.rowCount ? result.rowCount > 0 : false
+    },
+    getChatsUser: async (userId: string) => {
+        const query = `SELECT chat_id, role, type, join_at
+        FROM chat_members 
+        JOIN chats ON chat_id = chats.id
+        WHERE user_id = $1`
+        const value = [userId]
+        const result = await pool.query(query, value)
+        return result.rows
+    },
+    getChatMembers: async (chatId: any, userId: string) =>{
+        const query = `SELECT chat_id, user_id, username, role, join_at
+        FROM chat_members 
+        JOIN users ON user_id = users.id
+        WHERE chat_id = ANY($1::uuid[]) AND user_id <> $2`
+        const values = [chatId, userId]
+        const result = await pool.query(query, values)
+        return result.rows
     }
 }
 

@@ -81,6 +81,42 @@ export const privetChat = asyncHandler(async (req: CustomRequest, res: Response<
 
 });
 
+export const getChatsUser = asyncHandler(async (req: CustomRequest,
+    res: Response<ApiResponse>) => {
+    const userId = req.user?.id
+
+    const userChats = await chatModel.getChatsUser(userId!)
+
+    if (userChats.length === 0) {
+        return res.status(404).json({
+            status: "fail",
+            message: "not found user chats"
+        })
+    }
+    const chatsIds = userChats.map((chat) => {
+        return chat.chat_id;
+    });
+    const chatMembers = await chatModel.getChatMembers(chatsIds, userId!)
+
+    const chats = userChats.map((chat) => {
+        const members = chatMembers.filter(
+            (member) => member.chat_id === chat.chat_id
+        );
+        return {
+            ...chat,
+            members
+        };
+    });
+
+    return res.status(200).json({
+        status: "success",
+        message: "chats returned successfully",
+        data: {
+            chats
+        }
+    })
+})
+
 export const getChatMessages = asyncHandler(async (req: CustomRequest, res: Response<ApiResponse>) => {
     const { chatId } = req.params;
     const userId = req.user?.id;
