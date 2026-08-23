@@ -1,11 +1,11 @@
 import type { Response } from 'express';
-import chatModel from '../models/chat.model.js';
-import userModel from '../models/auth.model.js';
 import type { ApiResponse } from '../interface/respons.interface.js';
 import type { member } from "../interface/chat.interface.js";
 import type { CustomRequest } from "../middlewares/auth.middleware.js";
 import { asyncHandler } from "../middlewares/error.middleware.js"
-
+import { pool } from "../config/db.js";
+import chatModel from '../models/chat.model.js';
+import userModel from '../models/auth.model.js';
 
 export const privetChat = asyncHandler(async (req: CustomRequest, res: Response<ApiResponse>) => {
     const userId = req.user?.id as string;
@@ -47,38 +47,47 @@ export const privetChat = asyncHandler(async (req: CustomRequest, res: Response<
             }
         })
     }
+    const client = await pool.connect()
 
-    const chat = await chatModel.createPrivetChat();
+    try {
+        await client.query("BEGIN")
 
-    const senderMemberData: member = {
-        userId,
-        role: "member",
-        chatId: chat.id
-    };
-    const receiverMemberData: member = {
-        userId: receiverId,
-        role: "member",
-        chatId: chat.id
-    };
+        const chat = await chatModel.createPrivetChat(client)
 
-    await Promise.all([
-        chatModel.addMemberToChat(senderMemberData),
-        chatModel.addMemberToChat(receiverMemberData)
-    ]);
-    const username = await chatModel.getUsername({ chatId: chat.id, userId })
+        const senderMemberData: member = {
+            userId,
+            role: "member",
+            chatId: chat.id
+        };
+        const receiverMemberData: member = {
+            userId: receiverId,
+            role: "member",
+            chatId: chat.id
+        };
+         await chatModel.addMemberToChat(client, senderMemberData)
+         await chatModel.addMemberToChat(client, receiverMemberData)
 
-    return res.status(201).json({
-        status: "success",
-        message: "Private chat created successfully",
-        data: {
-            chat_id: chat.id,
-            name: username.username,
-            created_at: chat.created_at,
-            type: chat.type
-        }
-    });
+        const username = await chatModel.getUsername({ chatId: chat.id, userId })
 
+        await client.query("COMMIT")
 
+        return res.status(201).json({
+            status: "success",
+            message: "Private chat created successfully",
+            data: {
+                chat_id: chat.id,
+                name: username,
+                created_at: chat.created_at,
+                type: chat.type
+            }
+        });
+
+    } catch (error) {
+        await client.query("ROLLBACK")
+        throw error
+    } finally {
+        client.release()
+    }
 });
 
 export const getChatsUser = asyncHandler(async (req: CustomRequest,
@@ -140,3 +149,45 @@ export const getChatMessages = asyncHandler(async (req: CustomRequest, res: Resp
         data: messages
     });
 });
+
+export const createGrouoChat = asyncHandler(async (req: CustomRequest, res: Response<ApiResponse>) => {
+    const userId = req.user?.id as string
+    const name = req.body?.name?.trim()
+
+    const client = await pool.connect()
+
+    try {
+        await client.query("BEGIN")
+
+        const chat = await chatModel.createGroupChat(client, name)
+
+        const memberData: member = {
+            chatId: chat.id,
+            userId,
+            role: "admin"
+        }
+
+        const addMemberToChat = await chatModel.addMemberToChat(client, memberData)
+
+        await client.query("COMMIT")
+
+        return res.status(201).json({
+            status: "success",
+            message: "group is created successfully",
+            data: {
+                chat_id: chat.id,
+                name: chat.name,
+                user_id: addMemberToChat.user_id,
+                role: addMemberToChat.role,
+                join_at: addMemberToChat.join_at
+            }
+        })
+
+    } catch (error) {
+        await client.query("ROLLBACK")
+        throw error
+
+    } finally {
+        client.release()
+    }
+})

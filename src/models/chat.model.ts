@@ -1,30 +1,30 @@
 import { pool } from "../config/db.js";
-import { getChatsUser } from "../controllers/chat.controller.js";
 import type { member, message } from "../interface/chat.interface.js"
+import type { PoolClient } from 'pg'
 
 const chat = {
-    createGroupChat: async (name: string) => {
+    createGroupChat: async (client: PoolClient, name: string) => {
         const query = `INSERT INTO chats(name, type)
         VALUES($1,'Group')
         RETURNING *`
         const value = [name]
-        const result = await pool.query(query, value)
+        const result = await client.query(query, value)
         return result.rows[0]
     },
-    createPrivetChat: async () => {
+    createPrivetChat: async (client: PoolClient) => {
         const query = `INSERT INTO chats(type)
         VALUES('Private')
         RETURNING *`
-        const result = await pool.query(query)
+        const result = await client.query(query)
         return result.rows[0]
     },
-    addMemberToChat: async (data: member) => {
+    addMemberToChat: async (client: PoolClient, data: member) => {
         const query = `
         INSERT INTO chat_members(chat_id, user_id, role)
         VALUES($1, $2, $3)
         RETURNING *`
         const values = [data.chatId, data.userId, data.role]
-        const result = await pool.query(query, values);
+        const result = await client.query(query, values);
         return result.rows[0];
     },
     createMessage: async (data: message) => {
@@ -45,7 +45,7 @@ const chat = {
     getUsername: async (data: any) => {
         const query = `SELECT username FROM users
         JOIN chat_members ON users.id = chat_members.user_id
-        WHERE chat_id = $1 AND user_id <> $2`
+        WHERE chat_id = $1 AND user_id != $2`
         const values = [data.chatId, data.userId]
         const result = await pool.query(query, values)
         return result.rows[0]
@@ -145,7 +145,7 @@ const chat = {
         const result = await pool.query(query, value)
         return result.rows
     },
-    getChatMembers: async (chatId: any, userId: string) =>{
+    getChatMembers: async (chatId: any, userId: string) => {
         const query = `SELECT chat_id, user_id, username, role, join_at
         FROM chat_members 
         JOIN users ON user_id = users.id
