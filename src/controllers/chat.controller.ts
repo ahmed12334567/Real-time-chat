@@ -2,7 +2,7 @@ import type { Response } from 'express';
 import type { ApiResponse } from '../interface/respons.interface.js';
 import type { member } from "../interface/chat.interface.js";
 import type { CustomRequest } from "../middlewares/auth.middleware.js";
-import { asyncHandler } from "../middlewares/error.middleware.js"
+import { asyncHandler } from "../middlewares/error.middleware.js";
 import { pool } from "../config/db.js";
 import chatModel from '../models/chat.model.js';
 import userModel from '../models/auth.model.js';
@@ -64,8 +64,8 @@ export const privetChat = asyncHandler(async (req: CustomRequest, res: Response<
             role: "member",
             chatId: chat.id
         };
-         await chatModel.addMemberToChat(client, senderMemberData)
-         await chatModel.addMemberToChat(client, receiverMemberData)
+        await chatModel.addMemberToChat(client, senderMemberData)
+        await chatModel.addMemberToChat(client, receiverMemberData)
 
         const username = await chatModel.getUsername({ chatId: chat.id, userId })
 
@@ -139,7 +139,10 @@ export const getChatMessages = asyncHandler(async (req: CustomRequest, res: Resp
     const isMember = await chatModel.isUserInChat({ chatId, userId });
 
     if (!isMember) {
-        return res.status(403).json({ status: "fail", message: 'Unauthorized access to chat' });
+        return res.status(403).json({
+            status: "fail",
+            message: 'Unauthorized access to chat'
+        });
     }
     const messages = await chatModel.getChatMessages(chatId);
 
@@ -191,3 +194,76 @@ export const createGrouoChat = asyncHandler(async (req: CustomRequest, res: Resp
         client.release()
     }
 })
+
+
+export const addMemberToGroup = asyncHandler((async (req: CustomRequest,
+    res: Response<ApiResponse>) => {
+    const userId = req.user?.id as string
+    const chatId = req.params.chatId as string
+    const role = req.body.role
+    const memberId = req.body.memberId
+
+    const checkAdmin = await chatModel.getAdminMembership(userId, chatId)
+
+    if (!checkAdmin) {
+        return res.status(403).json({
+            status: "fail",
+            message: "You must be a admin to be able to add members"
+        })
+    }
+
+    const client = await pool.connect()
+
+    try {
+
+        await client.query("BEGIN");
+
+        const existingMember = await chatModel.checkGroupChat(client, chatId, memberId)
+
+        if (existingMember) {
+            await client.query("ROLLBACK");
+            return res.status(409).json({
+                status: "success",
+                message: "member already existing",
+                data: {
+                    member: existingMember
+                }
+            })
+        }
+
+        const memberData: member = {
+            userId: memberId,
+            chatId,
+            role
+        }
+
+        const addMemberToChat = await chatModel.addMemberToChat(client, memberData)
+
+        if (!addMemberToChat) {
+            await client.query("ROLLBACK");
+            return res.status(500).json({
+                status: "fail",
+                message: "Something went error Please try again"
+            })
+        }
+
+        await client.query("COMMIT")
+
+        return res.status(201).json({
+            status: "success",
+            message: "member added successfully",
+            data: {
+                user_id: addMemberToChat.user_id,
+                role: addMemberToChat.role,
+                join_at: addMemberToChat.join_at
+            }
+        })
+
+    } catch (error) {
+        await client.query("ROLLBACK");
+        throw error;
+        
+    } finally {
+        client.release()
+    }
+}))

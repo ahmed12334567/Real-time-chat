@@ -65,6 +65,13 @@ const chat = {
         const result = await pool.query(query, values)
         return result.rows[0]
     },
+    checkGroupChat: async (client: PoolClient, chatId: string, userId: string) =>{
+        const query = `SELECT * FROM chat_members
+        WHERE chat_id = $1 AND user_id = $2`
+        const values = [chatId, userId]
+        const result = await client.query(query, values)
+        return result.rows[0]
+    },
     isUserInChat: async (data: any) => {
         const query = `SELECT 1 
                         FROM chat_members 
@@ -153,6 +160,15 @@ const chat = {
         const values = [chatId, userId]
         const result = await pool.query(query, values)
         return result.rows
+    },
+    getAdminMembership: async (userId: string, chatId: string): Promise<member | undefined> => {
+        const query = `SELECT 1 FROM chat_members
+        JOIN chats ON chat_id = chats.id 
+        WHERE user_id = $1 AND chat_id = $2
+        AND type = 'Group' AND role = 'admin'`
+        const values = [userId, chatId]
+        const result = await pool.query(query, values)
+        return result.rows[0]
     }
 }
 
