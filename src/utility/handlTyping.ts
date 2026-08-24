@@ -1,11 +1,18 @@
 
 import type { AuthenticatedSocket } from '../middlewares/socketAuth.middleware.js';
+import { checkRateLimit } from "../utility/socketRateLimiter.js"
 
 const handleTypingEvent = (eventName: "typing" | "stop_typing", socket: AuthenticatedSocket) => async (data: { chatId: string }) => {
     const userId = socket.user?.id
     const username = socket.user?.username
     const { chatId } = data;
     if (!chatId || !userId || !username) return;
+
+    const allowed = checkRateLimit(`${userId}:typing`, 20, 10_000);
+
+    if (!allowed) {
+        return socket.emit('error', { message: 'Rate limit exceeded, slow down' });
+    }
 
     const rooms = Array.from(socket.rooms)
 

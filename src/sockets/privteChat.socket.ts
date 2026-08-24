@@ -4,7 +4,8 @@ import chatModel from '../models/chat.model.js';
 import handleTypingEvent from '../utility/handlTyping.js';
 import verifyMessageOwnership from "../utility/verifyMessageOwnership.js"
 import { addUserSocket, removeUserSocket } from '../utility/onlineUsers.js';
-import { socketAsyncHandler } from "../middlewares/error.middleware.js"
+import { socketAsyncHandler } from "../middlewares/error.middleware.js";
+import { withRateLimit } from "../utility/withRateLimit.js"
 
 export const registerChatHandlers = socketAsyncHandler(async (io: Server, socket: AuthenticatedSocket) => {
   const userId = socket.user?.id
@@ -71,29 +72,33 @@ export const registerChatHandlers = socketAsyncHandler(async (io: Server, socket
   }))
 
   socket.on("send_message",
-    socketAsyncHandler(async (data: { chatId: string; content: string }) => {
+    withRateLimit(socket, "send_message",
+      socketAsyncHandler(async (data: { chatId: string; content: string }) => {
 
-      const { chatId, content } = data;
+        const { chatId, content } = data;
 
-      if (!chatId || !content || !userId || !username) {
-        return socket.emit('error', { message: 'Invalid message data' });
-      }
+        if (!chatId || !content || !userId || !username) {
+          return socket.emit('error', { message: 'Invalid message data' });
+        }
 
-      const rooms = Array.from(socket.rooms)
-      if (!rooms.includes(chatId)) {
-        return socket.emit('error', { message: 'You must join the chat first' });
-      }
+        const rooms = Array.from(socket.rooms)
+        if (!rooms.includes(chatId)) {
+          return socket.emit('error', { message: 'You must join the chat first' });
+        }
 
-      const savedMessage = await chatModel.createMessage({
-        chatId,
-        senderId: userId,
-        content,
-        status: 'Sent'
-      })
+        const savedMessage = await chatModel.createMessage({
+          chatId,
+          senderId: userId,
+          content,
+          status: 'Sent'
+        })
 
-      io.to(chatId).emit("receive_message", savedMessage)
+        io.to(chatId).emit("receive_message", savedMessage)
 
-    }))
+      }),
+      { max: 20, windowMs: 10_000 }
+    )
+  )
 
   socket.on('leave_chat', (data: { chatId: string }) => {
     socket.leave(data.chatId);
@@ -101,91 +106,111 @@ export const registerChatHandlers = socketAsyncHandler(async (io: Server, socket
   });
 
 
-  socket.on("mark_as_read", socketAsyncHandler(async (data: { chatId: string }) => {
-    const { chatId } = data;
-    if (!chatId || !userId || !username) return;
+  socket.on("mark_as_read",
+    withRateLimit(socket, "mark_as_read",
+      socketAsyncHandler(async (data: { chatId: string }) => {
+        const { chatId } = data;
+        if (!chatId || !userId || !username) return;
 
-    const updatedMessages = await chatModel.markMessagesAsRead(chatId, userId);
 
-    if (updatedMessages.length > 0) {
-      io.to(chatId).emit("messages_read_receipt", {
-        chatId,
-        readBy: userId,
-        updatedMessageIds: updatedMessages.map((m) => m.id),
-      });
-    }
-  }))
+        const updatedMessages = await chatModel.markMessagesAsRead(chatId, userId);
 
-  socket.on("typing", handleTypingEvent("typing", socket));
+        if (updatedMessages.length > 0) {
+          io.to(chatId).emit("messages_read_receipt", {
+            chatId,
+            readBy: userId,
+            updatedMessageIds: updatedMessages.map((m) => m.id),
+          });
+        }
+      }),
+      { max: 20, windowMs: 10_000 }
+    ))
 
-  socket.on("stop_typing", handleTypingEvent("stop_typing", socket));
+  socket.on("typing",
+    withRateLimit(socket, "typing",
+      handleTypingEvent("typing", socket),
+      { max: 20, windowMs: 10_000 }
+    ))
+
+  socket.on("stop_typing",
+    withRateLimit(socket, "stop_typing",
+      handleTypingEvent("stop_typing", socket),
+      { max: 20, windowMs: 10_000 }
+    ))
 
   socket.on("update_message",
-    socketAsyncHandler(async (data: { messageId: string, chatId: string, content: string }) => {
+    withRateLimit(socket, "update_message",
+      socketAsyncHandler(async (data: { messageId: string, chatId: string, content: string }) => {
 
-      const { messageId, chatId, content } = data
+        const { messageId, chatId, content } = data
 
-      if (!messageId || !chatId || content.trim().length === 0) {
-        return socket.emit('error', { message: 'invalid values, check your values' });
-      }
+        if (!messageId || !chatId || content.trim().length === 0) {
+          return socket.emit('error', { message: 'invalid values, check your values' });
+        }
 
-      const rooms = Array.from(socket.rooms)
+        const rooms = Array.from(socket.rooms)
 
-      if (!rooms.includes(chatId)) {
-        return socket.emit('error', { message: 'You must join the chat first' });
-      }
+        if (!rooms.includes(chatId)) {
+          return socket.emit('error', { message: 'You must join the chat first' });
+        }
 
-      const ownership = await verifyMessageOwnership(messageId, chatId, userId!);
-      if (!ownership.success) {
-        return socket.emit('error', { message: ownership.error });
-      }
+        const ownership = await verifyMessageOwnership(messageId, chatId, userId!);
+        if (!ownership.success) {
+          return socket.emit('error', { message: ownership.error });
+        }
 
-      const updateMessage = await chatModel.updateMessage(content, messageId, chatId)
+        const updateMessage = await chatModel.updateMessage(content, messageId, chatId)
 
-      if (!updateMessage) {
-        return socket.emit("error", { message: "cannot update message, try again later" })
-      }
-      return socket.to(chatId).emit("user_update_message", {
-        username,
-        messageId: updateMessage.id,
-        content: updateMessage.content,
-        editedAt: updateMessage.updated_at
-      });
+        if (!updateMessage) {
+          return socket.emit("error", { message: "cannot update message, try again later" })
+        }
+        return socket.to(chatId).emit("user_update_message", {
+          username,
+          messageId: updateMessage.id,
+          content: updateMessage.content,
+          editedAt: updateMessage.updated_at
+        });
 
-    }))
+      }),
+      { max: 20, windowMs: 10_000 }
+    ))
 
 
-  socket.on("delete_message", socketAsyncHandler(async (data: { messageId: string, chatId: string }) => {
-    const { chatId, messageId } = data;
+  socket.on("delete_message",
+    withRateLimit(socket, "delete_message",
+      socketAsyncHandler(async (data: { messageId: string, chatId: string }) => {
+        const { chatId, messageId } = data;
 
-    if (!messageId || !chatId) {
-      return socket.emit('error', { message: 'invalid values, check your values' });
-    }
+        if (!messageId || !chatId) {
+          return socket.emit('error', { message: 'invalid values, check your values' });
+        }
 
-    const rooms = Array.from(socket.rooms)
+        const rooms = Array.from(socket.rooms)
 
-    if (!rooms.includes(chatId)) {
-      return socket.emit('error', { message: 'You must join the chat first' });
-    }
+        if (!rooms.includes(chatId)) {
+          return socket.emit('error', { message: 'You must join the chat first' });
+        }
 
-    const ownership = await verifyMessageOwnership(messageId, chatId, userId!);
+        const ownership = await verifyMessageOwnership(messageId, chatId, userId!);
 
-    if (!ownership.success) {
-      return socket.emit('error', { message: ownership.error });
-    }
+        if (!ownership.success) {
+          return socket.emit('error', { message: ownership.error });
+        }
 
-    const deleteMessage = await chatModel.deleteMessage(messageId, chatId)
+        const deleteMessage = await chatModel.deleteMessage(messageId, chatId)
 
-    if (!deleteMessage) {
-      return socket.emit("error", { message: "cannot delete message, try again later" })
-    }
+        if (!deleteMessage) {
+          return socket.emit("error", { message: "cannot delete message, try again later" })
+        }
 
-    return socket.to(chatId).emit("user_delete_message", {
-      username,
-      messageId: deleteMessage.id,
-      deleted_at: deleteMessage.deleted_at
-    })
+        return socket.to(chatId).emit("user_delete_message", {
+          username,
+          messageId: deleteMessage.id,
+          deleted_at: deleteMessage.deleted_at
+        })
 
-  }))
+      }),
+      { max: 20, windowMs: 10_000 }
+    ))
 
 });

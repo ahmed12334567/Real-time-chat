@@ -6,6 +6,7 @@ import { Server } from 'socket.io';
 import { socketAuthMiddleware } from './middlewares/socketAuth.middleware.js';
 import type { AuthenticatedSocket } from './middlewares/socketAuth.middleware.js';
 import { registerChatHandlers } from './sockets/privteChat.socket.js';
+import { authLimiter, globalLimiter } from "./utility/ratelimiting.js"
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -24,8 +25,10 @@ io.on('connection', (socket: AuthenticatedSocket) => {
   registerChatHandlers(io, socket);
 });
 
+app.use(globalLimiter)
+
 import authRouter from "./routes/auth.route.js"
-app.use("/api/v1/auth", authRouter)
+app.use("/api/v1/auth", authLimiter, authRouter)
 
 import chatRouter from "./routes/chat.route.js"
 app.use("/api/v1/chat", chatRouter)
