@@ -4,7 +4,8 @@ import {
     getChatMessages,
     getChatsUser,
     createGrouoChat,
-    addMemberToGroup
+    addMemberToGroup,
+    leaveMemberChat
 } from "../controllers/chat.controller.js";
 import validUUID from "../validators/uuid.validator.js"
 import handleValidationErrors from "../validators/handleValidationErrors.js"
@@ -19,6 +20,9 @@ router.post("/group", verify, groupChatValidation, handleValidationErrors, creat
 
 router.post("/:chatId/group", verify, validUUID("chatId"), addMemberValidation,
     handleValidationErrors, addMemberToGroup)
+
+router.delete("/:chatId/group/leave", verify, validUUID("chatId"), 
+    handleValidationErrors, leaveMemberChat)
 
 router.get("/", verify, getChatsUser)
 

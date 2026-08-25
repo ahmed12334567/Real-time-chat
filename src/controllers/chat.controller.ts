@@ -220,10 +220,10 @@ export const addMemberToGroup = asyncHandler((async (req: CustomRequest,
 
         const existingMember = await chatModel.checkGroupChat(client, chatId, memberId)
 
-        if (existingMember) {
+        if (existingMember?.is_active) {
             await client.query("ROLLBACK");
             return res.status(409).json({
-                status: "success",
+                status: "fail",
                 message: "member already existing",
                 data: {
                     member: existingMember
@@ -262,8 +262,49 @@ export const addMemberToGroup = asyncHandler((async (req: CustomRequest,
     } catch (error) {
         await client.query("ROLLBACK");
         throw error;
-        
+
     } finally {
         client.release()
     }
-}))
+}));
+
+
+export const leaveMemberChat = asyncHandler(async (req: CustomRequest,
+    res: Response<ApiResponse>) => {
+
+    const userId = req.user?.id
+    const chatId = req.params.chatId as string
+
+    const client = await pool.connect()
+
+    try {
+        const existingMember = await chatModel.checkGroupChat(client, chatId, userId!)
+
+        if (!existingMember) {
+            return res.status(404).json({
+                status: "fail",
+                message: "not found member in chat"
+            })
+        }
+
+        const leaveMemberChat = await chatModel.leaveMemberChat(client, chatId, userId!)
+
+        if (!leaveMemberChat) {
+            return res.status(500).json({
+                status: "fail",
+                message: "Something went error Please try again"
+            })
+        }
+
+        return res.status(200).json({
+            status: "success",
+            message: "member leaved successfully",
+            data: {
+                leaveMemberChat
+            }
+        })
+
+    } finally {
+        client.release()
+    }
+})

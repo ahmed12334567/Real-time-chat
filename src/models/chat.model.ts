@@ -20,8 +20,15 @@ const chat = {
     },
     addMemberToChat: async (client: PoolClient, data: member) => {
         const query = `
-        INSERT INTO chat_members(chat_id, user_id, role)
-        VALUES($1, $2, $3)
+        INSERT INTO chat_members(chat_id, user_id, role, is_active)
+        VALUES($1, $2, $3, true)
+        ON CONFLICT (chat_id, user_id)
+        DO UPDATE SET 
+            is_active = true,
+            left_at = null,
+            removed_by = NULL,
+            join_at = NOW(),
+            role = EXCLUDED.role
         RETURNING *`
         const values = [data.chatId, data.userId, data.role]
         const result = await client.query(query, values);
@@ -65,7 +72,7 @@ const chat = {
         const result = await pool.query(query, values)
         return result.rows[0]
     },
-    checkGroupChat: async (client: PoolClient, chatId: string, userId: string) =>{
+    checkGroupChat: async (client: PoolClient, chatId: string, userId: string) => {
         const query = `SELECT * FROM chat_members
         WHERE chat_id = $1 AND user_id = $2`
         const values = [chatId, userId]
@@ -76,6 +83,7 @@ const chat = {
         const query = `SELECT 1 
                         FROM chat_members 
                         WHERE chat_id = $1 AND user_id = $2
+                        AND is_active = true
                         LIMIT 1;`
         const values = [data.chatId, data.userId]
         const result = await pool.query(query, values)
@@ -168,6 +176,30 @@ const chat = {
         AND type = 'Group' AND role = 'admin'`
         const values = [userId, chatId]
         const result = await pool.query(query, values)
+        return result.rows[0]
+    },
+    leaveMemberChat: async (client: PoolClient, chatId: string, memberId: string) => {
+        const query = `UPDATE chat_members 
+        SET left_at = CURRENT_TIMESTAMP, is_active = false
+        WHERE chat_id = $1 AND user_id = $2
+        RETURNING left_at`
+        const values = [chatId, memberId]
+        const result = await client.query(query, values)
+        return result.rows[0]
+    },
+    removeMemberChat: async (
+        client: PoolClient,
+        chatId: string,
+        targetUserId: string,
+        removedBy: string | null
+    ) => {
+        const query = `UPDATE chat_members
+        SET is_active = false, left_at = CURRENT_TIMESTAMP,
+        removed_by = $3
+        WHERE chat_id = $1 AND user_id = $2
+        RETURNING left_at`
+        const values = [chatId, targetUserId, removedBy]
+        const result = await client.query(query, values)
         return result.rows[0]
     }
 }
