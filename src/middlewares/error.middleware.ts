@@ -89,10 +89,12 @@ export const asyncHandler = (fn: RequestHandler): RequestHandler => {
 type SocketHandler = (...args: any[]) => any;
 
 export const socketAsyncHandler = (fn: SocketHandler) => {
-  return (...args: any[]) => {
-    Promise.resolve(fn(...args)).catch((error) => {
-      console.error(error);
-    })
-  }
-}
+  return async (...args: any[]) => {
+    try {
+      await fn(...args);
+    } catch (error) {
+      console.error("Socket handler error:", error);
+    }
+  };
+};
 

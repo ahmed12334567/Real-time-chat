@@ -5,7 +5,8 @@ import http from 'http';
 import { Server } from 'socket.io';
 import { socketAuthMiddleware } from './middlewares/socketAuth.middleware.js';
 import type { AuthenticatedSocket } from './middlewares/socketAuth.middleware.js';
-import { registerChatHandlers } from './sockets/privteChat.socket.js';
+import { registerCommonChatHandlers } from './sockets/common.chat.handlers.js';
+import { registerGroupChatHandler } from './sockets/group.chat.handlers.js';
 import { authLimiter, globalLimiter } from "./utility/ratelimiting.js"
 
 const app = express();
@@ -22,7 +23,8 @@ const io = new Server(server, {
 io.use(socketAuthMiddleware);
 
 io.on('connection', (socket: AuthenticatedSocket) => {
-  registerChatHandlers(io, socket);
+  registerCommonChatHandlers(io, socket);
+  registerGroupChatHandler(io, socket);
 });
 
 app.use(globalLimiter)

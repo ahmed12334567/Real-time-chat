@@ -287,7 +287,7 @@ export const leaveMemberChat = asyncHandler(async (req: CustomRequest,
             })
         }
 
-        const leaveMemberChat = await chatModel.leaveMemberChat(client, chatId, userId!)
+        const leaveMemberChat = await chatModel.removeMemberChat(client, chatId, userId!)
 
         if (!leaveMemberChat) {
             return res.status(500).json({
