@@ -172,4 +172,39 @@ export const registerGroupChatHandler = socketAsyncHandler(async (
                 client.release()
             }
         }))
+
+    socket.on('change_role',
+        socketAsyncHandler(async (data: { chatId: string; memberId: string, role: string }) => {
+            const { chatId, memberId, role } = data;
+
+            const roles = ["member", "admin"]
+
+            if (
+                typeof chatId !== "string" || !chatId ||
+                typeof memberId !== "string" || !memberId ||
+                !roles.includes(role)
+            ) {
+                return socket.emit("error", { message: "invalid values" });
+            }
+
+            if (userId === memberId) {
+                return socket.emit("error", { message: "cannot change role by yourself" })
+            }
+
+            const checkAdmin = await chatModel.getAdminMembership(userId!, chatId)
+
+            if (!checkAdmin) {
+                return socket.emit("error", { message: "Only admins can change role members" })
+            }
+
+            const changeRole = await chatModel.changeRole(chatId, memberId, role)
+
+            if (!changeRole) {
+                return socket.emit("error", { message: "Something went wrong, please try again" })
+            }
+
+            return io.to(chatId).emit("user_change_role", {
+                changeRole
+            })
+        }))
 })

@@ -156,7 +156,8 @@ const chat = {
         const query = `SELECT chat_id, role, type, join_at
         FROM chat_members 
         JOIN chats ON chat_id = chats.id
-        WHERE user_id = $1`
+        WHERE user_id = $1 
+        AND is_active = true`
         const value = [userId]
         const result = await pool.query(query, value)
         return result.rows
@@ -193,6 +194,15 @@ const chat = {
         RETURNING left_at`
         const values = [chatId, targetUserId, removedBy]
         const result = await client.query(query, values)
+        return result.rows[0]
+    },
+    changeRole: async (chatId: string, memberId: string, role: string) => {
+        const query = `UPDATE chat_members
+        SET role = $3 
+        WHERE chat_id = $1 AND user_id = $2
+        RETURNING *`
+        const values = [chatId, memberId, role]
+        const result = await pool.query(query, values)
         return result.rows[0]
     }
 }
