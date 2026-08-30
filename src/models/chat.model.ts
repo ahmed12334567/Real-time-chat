@@ -196,14 +196,21 @@ const chat = {
         const result = await client.query(query, values)
         return result.rows[0]
     },
-    changeRole: async (chatId: string, memberId: string, role: string) => {
+    changeRole: async (client: PoolClient, chatId: string, memberId: string, role: string) => {
         const query = `UPDATE chat_members
         SET role = $3 
         WHERE chat_id = $1 AND user_id = $2
         RETURNING *`
         const values = [chatId, memberId, role]
-        const result = await pool.query(query, values)
+        const result = await client.query(query, values)
         return result.rows[0]
+    },
+    countAdmins: async (client: PoolClient, chatId: string) => {
+        const query = `SELECT COUNT(role) FROM chat_members
+        WHERE chat_id = $1 AND role = 'admin'`
+        const value = [chatId]
+        const result = await client.query(query, value)
+        return result.rows[0].count
     }
 }
 

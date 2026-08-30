@@ -197,14 +197,48 @@ export const registerGroupChatHandler = socketAsyncHandler(async (
                 return socket.emit("error", { message: "Only admins can change role members" })
             }
 
-            const changeRole = await chatModel.changeRole(chatId, memberId, role)
+            const client = await pool.connect();
 
-            if (!changeRole) {
-                return socket.emit("error", { message: "Something went wrong, please try again" })
+            try {
+                await client.query("BEGIN");
+
+                const existingMember = await chatModel.checkGroupChat(client, chatId, memberId);
+
+                if (!existingMember) {
+                    await client.query("ROLLBACK");
+                    return socket.emit('error', { message: 'User is not a member of this chat' });
+                }
+
+                if (role === "member") {
+                    const adminCount = await chatModel.countAdmins(client, chatId);
+
+                    if (existingMember.role === "admin" && adminCount <= 1) {
+                        await client.query("ROLLBACK");
+                        return socket.emit("error", {
+                            message: "Cannot change role: this is the last admin in the chat",
+                        });
+                    }
+                }
+
+                const changeRole = await chatModel.changeRole(client, chatId, memberId, role)
+
+                if (!changeRole) {
+                    await client.query("ROLLBACK");
+                    return socket.emit("error", { message: "Something went wrong, please try again" })
+                }
+
+                await client.query("COMMIT");
+
+                return io.to(chatId).emit("user_change_role", {
+                    changeRole
+                })
+
+            } catch (error) {
+                await client.query("ROLLBACK");
+                throw error
             }
-
-            return io.to(chatId).emit("user_change_role", {
-                changeRole
-            })
+            finally {
+                client.release()
+            }
         }))
 })
