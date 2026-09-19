@@ -46,7 +46,7 @@ export const registerGroupChatHandler = socketAsyncHandler(async (
             await client.query("BEGIN");
 
             const existingMember = await chatModel.checkGroupChat(client, chatId, memberId);
-            console.log(existingMember);
+
             if (existingMember) {
                 await client.query("ROLLBACK");
                 return socket.emit('error', { message: 'User is a member of this chat' });
@@ -98,16 +98,27 @@ export const registerGroupChatHandler = socketAsyncHandler(async (
             const existingMember = await chatModel.checkGroupChat(client, chatId, userId!);
 
             if (!existingMember) {
+                await client.query("ROLLBACK");
                 return socket.emit('error', { message: 'You must join the chat first' });
+            }
+            const adminCount = await chatModel.countAdmins(client, chatId);
+
+            if (adminCount <= 1) {
+                await client.query("ROLLBACK");
+                return socket.emit("error", {
+                    message: "Cannot laeve chat: this is the last admin in the chat",
+                });
             }
 
             const leaveMemberChat = await chatModel.removeMemberChat(client, chatId, userId!)
 
             if (!leaveMemberChat) {
+                await client.query("ROLLBACK");
                 return socket.emit("error", { message: "Something went error Please try again" })
             }
 
             socket.leave(chatId);
+
             io.to(chatId).emit("user_leave_chat", {
                 chatId,
                 userId,
@@ -115,7 +126,11 @@ export const registerGroupChatHandler = socketAsyncHandler(async (
                 leftAt: leaveMemberChat.left_at
             });
 
-        } finally {
+        } catch (error) {
+            await client.query("ROLLBACK");
+            throw error
+        }
+        finally {
             client.release()
         }
     }));
@@ -146,12 +161,14 @@ export const registerGroupChatHandler = socketAsyncHandler(async (
                 const existingMember = await chatModel.checkGroupChat(client, chatId, memberId);
 
                 if (!existingMember) {
+                    await client.query("ROLLBACK");
                     return socket.emit('error', { message: 'User is not a member of this chat' });
                 }
 
                 const removed = await chatModel.removeMemberChat(client, chatId, memberId, userId!);
 
                 if (!removed) {
+                    await client.query("ROLLBACK");
                     return socket.emit('error', { message: 'Something went wrong, please try again' });
                 }
 
@@ -168,7 +185,11 @@ export const registerGroupChatHandler = socketAsyncHandler(async (
 
                 await Promise.all(toKick.map((s) => s.leave(chatId)));
 
-            } finally {
+            } catch (error) {
+                await client.query("ROLLBACK");
+                throw error
+            }
+            finally {
                 client.release()
             }
         }))

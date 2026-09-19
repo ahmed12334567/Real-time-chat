@@ -14,7 +14,7 @@ export function checkRateLimit(
         return true
     }
 
-    if (entry.resetAt >= maxRequests) {
+    if (entry.count >= maxRequests) {
         return false
     }
 

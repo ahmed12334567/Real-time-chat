@@ -135,8 +135,9 @@ export const getChatMessages = asyncHandler(async (req: CustomRequest, res: Resp
             message: "invalid chat ID"
         })
     }
-    await chatModel.markMessagesAsRead(chatId, userId!);
     const isMember = await chatModel.isUserInChat({ chatId, userId });
+    
+    await chatModel.markMessagesAsRead(chatId, userId!);
 
     if (!isMember) {
         return res.status(403).json({
