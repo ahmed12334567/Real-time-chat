@@ -457,7 +457,7 @@ Redis synchronizes Socket.IO events across multiple Node.js instances, so a mess
 
 * [x] Typing indicators
 * [x] Read receipts
-* [ ] Online / Offline presence
+* [x] Online / Offline presence
 * [x] Message editing
 * [x] Message deletion
 * [ ] File and image uploads
